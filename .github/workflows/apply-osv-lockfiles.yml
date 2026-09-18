@@ -2,7 +2,7 @@ name: apply-osv-lockfiles
 on:
   push:
     branches: [cursor/osv-dependency-bumps-d22a]
-    paths: ['.osv-upload/**']
+    paths: ['.osv-upload/manifest.json']
   workflow_dispatch:
 permissions:
   contents: write
@@ -18,13 +18,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 << 'PY'
-          import base64, json, tarfile, io
+          import base64, json, tarfile
           from pathlib import Path
           root = Path('.osv-upload')
           manifest = json.loads((root / 'manifest.json').read_text())
-          b64 = ''.join((root / p).read_text() for p in manifest['parts'])
-          data = base64.b64decode(b64)
-          Path('/tmp/locks.tar.gz').write_bytes(data)
+          b64 = ''.join((root / p).read_text().strip() for p in manifest['parts'])
+          Path('/tmp/locks.tar.gz').write_bytes(base64.b64decode(b64))
           with tarfile.open('/tmp/locks.tar.gz', 'r:gz') as tar:
             tar.extractall('.')
           print('extracted', manifest['files'])
@@ -32,16 +31,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package-lock.json uv.lock scripts/whatsapp-bridge/package-lock.json
-          git status
           if git diff --cached --quiet; then
             echo "No lockfile changes"
           else
             git commit -m "security: bump OSV-flagged dependencies in lockfiles"
-            git push origin cursor/osv-dependency-bumps-d22a
+            git push origin HEAD:cursor/osv-dependency-bumps-d22a
           fi
-          # cleanup upload staging
           git rm -rf .osv-upload .github/workflows/apply-osv-lockfiles.yml || true
           if ! git diff --cached --quiet; then
             git commit -m "chore: remove OSV upload staging artifacts"
-            git push origin cursor/osv-dependency-bumps-d22a
+            git push origin HEAD:cursor/osv-dependency-bumps-d22a
           fi
