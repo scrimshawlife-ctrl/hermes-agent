@@ -1,0 +1,24 @@
+{
+  "parts": [
+    "locks.tar.gz.b64.part00",
+    "locks.tar.gz.b64.part01",
+    "locks.tar.gz.b64.part02",
+    "locks.tar.gz.b64.part03",
+    "locks.tar.gz.b64.part04",
+    "locks.tar.gz.b64.part05",
+    "locks.tar.gz.b64.part06",
+    "locks.tar.gz.b64.part07",
+    "locks.tar.gz.b64.part08",
+    "locks.tar.gz.b64.part09",
+    "locks.tar.gz.b64.part10",
+    "locks.tar.gz.b64.part11",
+    "locks.tar.gz.b64.part12",
+    "locks.tar.gz.b64.part13"
+  ],
+  "archive": "locks.tar.gz",
+  "files": [
+    "package-lock.json",
+    "uv.lock",
+    "scripts/whatsapp-bridge/package-lock.json"
+  ]
+}
