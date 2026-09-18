@@ -2,7 +2,7 @@ name: apply-osv-lockfiles
 on:
   push:
     branches: [cursor/osv-dependency-bumps-d22a]
-    paths: ['.osv-upload/manifest.json']
+    paths: ['.osv-upload/TRIGGER']
   workflow_dispatch:
 permissions:
   contents: write
@@ -13,32 +13,42 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: cursor/osv-dependency-bumps-d22a
-          fetch-depth: 0
-      - name: Reassemble and commit lockfiles
+      - name: Apply staged lockfiles
         run: |
           set -euo pipefail
           python3 << 'PY'
-          import base64, json, tarfile
+          import base64, zlib, json, tarfile
           from pathlib import Path
           root = Path('.osv-upload')
-          manifest = json.loads((root / 'manifest.json').read_text())
-          b64 = ''.join((root / p).read_text().strip() for p in manifest['parts'])
-          Path('/tmp/locks.tar.gz').write_bytes(base64.b64decode(b64))
-          with tarfile.open('/tmp/locks.tar.gz', 'r:gz') as tar:
-            tar.extractall('.')
-          print('extracted', manifest['files'])
+          # WhatsApp lock from zlib parts
+          if (root/'wa.manifest.json').exists():
+            m=json.loads((root/'wa.manifest.json').read_text())
+            b64=''.join((root/p).read_text().strip() for p in m['parts'])
+            data=zlib.decompress(base64.b64decode(b64))
+            Path('scripts/whatsapp-bridge/package-lock.json').write_bytes(data)
+            print('wrote whatsapp package-lock', len(data))
+          # Full archive if present
+          if (root/'manifest.json').exists() and list(root.glob('data.b64.part*')):
+            m=json.loads((root/'manifest.json').read_text())
+            b64=''.join((root/p).read_text().strip() for p in m['parts'])
+            Path('/tmp/locks.tar.gz').write_bytes(base64.b64decode(b64))
+            with tarfile.open('/tmp/locks.tar.gz','r:gz') as tar:
+              tar.extractall('.')
+            print('extracted archive', m.get('files'))
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json uv.lock scripts/whatsapp-bridge/package-lock.json
-          if git diff --cached --quiet; then
-            echo "No lockfile changes"
-          else
+          git add -A
+          git status
+          if git diff --cached --quiet; then echo no changes; exit 0; fi
+          # Keep only lockfile changes in the security commit if possible
+          git reset HEAD
+          git add package-lock.json uv.lock scripts/whatsapp-bridge/package-lock.json || true
+          if ! git diff --cached --quiet; then
             git commit -m "security: bump OSV-flagged dependencies in lockfiles"
-            git push origin HEAD:cursor/osv-dependency-bumps-d22a
           fi
           git rm -rf .osv-upload .github/workflows/apply-osv-lockfiles.yml || true
           if ! git diff --cached --quiet; then
             git commit -m "chore: remove OSV upload staging artifacts"
-            git push origin HEAD:cursor/osv-dependency-bumps-d22a
           fi
+          git push origin HEAD:cursor/osv-dependency-bumps-d22a
