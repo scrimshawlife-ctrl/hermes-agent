@@ -1,1 +1,0 @@
-@/home/ubuntu/.cursor/projects/workspace/agent-tools/CallDynamicTool-Github-push_files.json
